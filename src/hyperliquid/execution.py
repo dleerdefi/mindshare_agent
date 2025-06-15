@@ -1,6 +1,5 @@
-"""Minimal wrapper around the hyperliquid-python-sdk for order execution."""
+"""Minimal wrapper around the Hyperliquid Python SDK for order execution."""
 from hyperliquid.exchange import Exchange
-from hyperliquid.utils.types import OrderType
 
 
 class HyperliquidExecutor:

@@ -324,3 +324,30 @@ basic building blocks to adapt the agent for trading perpetual futures on the Hy
 
 These modules are intentionally lightweight and can be expanded with real data
 feeds and secure key management using the Shade agent stack.
+
+### Strategy & Developer Responsibilities
+
+The goal of this project is to run an autonomous Shade agent that trades
+perpetual futures on Hyperliquid.  Signals from social media, on‑chain
+activity, and Hyperliquid metrics are ranked and translated into orders
+within a Trusted Execution Environment (TEE).  The modules under
+`src/hyperliquid` show the minimal wiring for this flow.  A senior
+developer leading the effort should:
+
+1. **Integrate real data feeds.** Wire up news APIs, on‑chain
+   watchers, and Hyperliquid WebSocket streams so the `SignalService`
+   can produce reliable `TradeIdea` objects.
+2. **Harden risk logic.** Replace the static tiers in `RiskEngine` with a
+   profile learned from wallet history and social metrics, keeping the
+   sensitive weights inside the TEE.
+3. **Implement execution callbacks.** Use the Hyperliquid Python SDK to
+   submit and monitor orders, streaming fills and P&L back into the TEE
+   for dynamic risk throttling.
+4. **Coordinate deployments.** The agent will be launched from our
+   webapp, so container builds and environment variables must be managed
+   automatically for each user.
+
+The Shade stack keeps signing keys and risk models private, while the
+Hyperliquid SDK handles actual order placement.  Production use assumes
+the user deploys their own container with appropriate API keys and
+wallets configured via the webapp.
