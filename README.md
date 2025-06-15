@@ -313,3 +313,14 @@ Once the worker is running:
 - [NEAR Intents](https://docs.near-intents.org/near-intents)
 - [Chain signatures](https://docs.near.org/chain-abstraction/chain-signatures)
 - [Phala Cloud](https://docs.phala.network/)
+## Hyperliquid Extension
+
+This repository originally demonstrated a NEAR mindshare trading agent. The `hyperliquid` package provides
+basic building blocks to adapt the agent for trading perpetual futures on the Hyperliquid DEX. It includes:
+
+- `RiskEngine` with three static tiers that return a `RiskEnvelope`.
+- `SignalService` which converts raw events into ranked `TradeIdea` objects.
+- `HyperliquidExecutor` for submitting limit orders using the official Hyperliquid SDK.
+
+These modules are intentionally lightweight and can be expanded with real data
+feeds and secure key management using the Shade agent stack.
