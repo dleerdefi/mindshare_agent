@@ -1,12 +1,12 @@
 # Mindshare Trading Agent
 
-Mindshare Trading Agent is an autonomous smart agent written in Python that runs securely inside a Trusted Execution Environment (TEE). It continuously analyzes the mindshare of tokens using the Kaito API, makes strategic trading decisions with the help of large language models (LLMs), and executes those trades on the [NEAR Protocol](https://docs.near.org/) using chain signatures and the [NEAR Intents protocol](https://near.org/intents).
+Mindshare Trading Agent is an autonomous smart agent written in Python that runs securely inside a Trusted Execution Environment (TEE). The original example leveraged the Kaito API to fetch token mindshare metrics, but this Hyperliquid-focused build relies on external market data feeds instead.  Large language models (LLMs) assist with strategy generation, and trades are executed on the [NEAR Protocol](https://docs.near.org/) using chain signatures and the [NEAR Intents protocol](https://near.org/intents).
 
 The agent is registered onchain in a NEAR smart contract and is cryptographically verified to be running in a secure environment (TEE). Based on mindshare metrics and asset balances, it autonomously evaluates and executes trades on a recurring schedule.
 
 ## ✨ Features
-- 🔍 Automated mindshare analysis.
-Continuously monitors token popularity and trends via Kaito API
+- 🔍 Automated market analysis.
+Continuously monitors token popularity and trends via external APIs (e.g. Kaiko, CryptoQuant)
 
 - 🧠 Smart trading decisions.
 Uses NEAR AI and LLMs to determine optimal trades based on current market signals
@@ -37,8 +37,8 @@ Acts as the core execution layer for trades and on-chain interactions. It also m
 - 🤖 NEAR AI & LLMs.
 The agent uses Large Language Models (LLMs) through the NEAR AI platform to reason about market conditions and determine optimal trading strategies. NEAR AI enables agents that can autonomously adapt, remember past actions, interact with external tools, and collaborate with other agents in a decentralized environment.
 
-- 🧠 Kaito API.
-Provides real-time access to proprietary mindshare and sentiment data across the crypto ecosystem. Kaito’s high-fidelity dataset includes quantifiable social metrics and in-depth analytics, allowing the agent to identify trending assets and anticipate market shifts with enhanced intelligence.
+- 🧠 Kaito API *(legacy example)*.
+The original template used Kaito mindshare metrics. In production we recommend dedicated market data feeds (e.g. Kaiko or CryptoQuant) to power signal generation.
 
 - 🔏 Chain Signatures (ERC-191 + MPC).
 Trades are signed off-chain using Chain Signatures, a system based on ERC-191 and Multi-Party Computation (MPC). This allows NEAR accounts—smart contracts or users—to securely sign transactions for other blockchains without exposing private keys. Chain Signatures enable:
@@ -67,16 +67,16 @@ Below is a high-level overview of how the agent works internally, along with the
 
 ![Agent Workflow](/images/flow.png)
 
-This agent runs inside a secure enclave (TEE) and automates trading decisions based on token mindshare in NEAR Intents. Here's the full execution flow:
+This agent runs inside a secure enclave (TEE) and automates trading decisions based on incoming market signals. Here's the full execution flow:
 
 - **Agent worker.**
 The agent starts inside a TEE, creates an ephemeral NEAR account, and checks if it is already registered on the Agent Worker smart contract by verifying its codehash. Once registered, future interactions skip this verification.
 
-- **Token Balances & Mindshare Retrieval.**
-After registered, the agent fetches token balances deposited in the NEAR Intents contract and retrieves mindshare data from the Kaito API.
+- **Token Balances & Market Data Retrieval.**
+After registration, the agent fetches token balances deposited in the NEAR Intents contract and pulls market data events from the chosen API provider.
 
 - **Trade Decision & Quote Generation.**
-The AI module (LLM) analyzes token mindshare and balances to generate trading decisions. These are turned into a structured quote, which is required by the solver bus.
+The AI module (LLM) analyzes market signals and balances to generate trading decisions. These are turned into a structured quote, which is required by the solver bus.
 
 - **Secure Signing via MPC.**
 The quote is sent to the Agent Worker contract, which verifies the agent’s identity via its codehash and forwards the signing request to the v1.signer contract. The v1.signer coordinates with the MPC service to securely sign the payload.
@@ -94,7 +94,7 @@ The agent sends the signed intent to the solver bus, where it becomes available 
 | Component           | Description |
 |---------------------|-------------|
 | **Scheduler**        | Triggers the periodic execution of the agent. |
-| **Agent (TEE)**      | Runs in a secure enclave, fetches balances, mindshare, and coordinates the workflow. |
+| **Agent (TEE)**      | Runs in a secure enclave, fetches balances, market data, and coordinates the workflow. |
 | **Quote Module**     | Builds standardized trade quotes from decisions. |
 | **Chain Signatures** | Handles secure signature flow via `Agent Worker` and `v1.signer` contracts. |
 | **Intent Publisher** | Publishes the final signed intent to NEAR Intents. |
@@ -190,12 +190,13 @@ Required environment variables:
 
 ```bash
 # Scheduler vars
+# (KAITO_API_KEY is retained only for backward compatibility with the original example)
 KAITO_API_KEY=<api_key>
 INTENT_ACCOUNT_ID=<account_id> # @dev account id for signing intents
 INTENT_PRIVATE_KEY=<private_key> # @dev private key for signing intents
 NETWORK="testnet|mainnet" # @dev testnet not fully supported yet
 SCHEDULE_INTERVAL= # @dev interval for agent execution (in seconds)
-USE_MOCK_MINDSHARE="true|false" # @dev use mock mindshare data from kaito api
+USE_MOCK_MINDSHARE="true|false" # @dev legacy flag for the example Kaito flow
 
 # Contract vars
 USE_STATIC_ACCOUNT="true|false" # @dev use static account for signing intents
@@ -223,16 +224,16 @@ The agent can be run locally to test its logic, interact with the deployed MPC s
 python src/scheduler/scheduler.py
 ```
 
-2. Expected behavior:
-- Uses mock mindshare data from the Kaito API (if USE_MOCK_MINDSHARE=true)
+- 2. Expected behavior:
+- Uses mock market data events if `USE_MOCK_MINDSHARE=true`
 - Uses a static NEAR account and private key set in .env
 - Sends the quote to the Agent Worker contract, which routes it to v1.signer for MPC signature  
 - Receives and verifies the signature (r, s, scalar)
 - Forms a valid intent, but does not publish it due to the lack of NEAR Intents testnet
 - Outputs all steps to the console for inspection
 
-💡 This mode is useful for validating:
-- Mindshare flow
+- 💡 This mode is useful for validating:
+- Data ingestion flow
 - Quote generation
 - MPC signature flow
 - Contract interactions
@@ -300,16 +301,72 @@ services:
 Once the worker is running:
 
 - ✅ The agent verifies registration on-chain
-- 🔁 Periodically fetches balances and mindshare
-- 💡 Makes trade decisions using LLM + Kaito
+- 🔁 Periodically fetches balances and market data
+- 💡 Makes trade decisions using LLM + signal analysis
 - 🖋️ Generates & signs quotes using MPC
 - 📤 Publishes signed intents to the NEAR Intents mainnet
 
 ## Acknowledgments
 
 - [NEAR Protocol](https://docs.near.org/)
-- [Kaito API](https://www.kaito.ai/kaito-api)
+- [Kaito API](https://www.kaito.ai/kaito-api) *(legacy example)*
 - [NEAR AI](https://docs.near.ai/)
 - [NEAR Intents](https://docs.near-intents.org/near-intents)
 - [Chain signatures](https://docs.near.org/chain-abstraction/chain-signatures)
 - [Phala Cloud](https://docs.phala.network/)
+## Hyperliquid Extension
+
+This repository originally demonstrated a NEAR mindshare trading agent. The `hyperliquid` package provides
+basic building blocks to adapt the agent for trading perpetual futures on the Hyperliquid DEX. It includes:
+
+- `RiskEngine` with three static tiers that return a `RiskEnvelope`.
+- `SignalService` which converts raw events into ranked `TradeIdea` objects.
+- `HyperliquidExecutor` for submitting limit orders using the official Hyperliquid SDK.
+
+These modules are intentionally lightweight and can be expanded with real data
+feeds and secure key management using the Shade agent stack.
+
+### Strategy & Developer Responsibilities
+
+The goal of this project is to run an autonomous Shade agent that trades
+perpetual futures on Hyperliquid.  Signals from social media, on‑chain
+activity, and Hyperliquid metrics are ranked and translated into orders
+within a Trusted Execution Environment (TEE).  The modules under
+`src/hyperliquid` show the minimal wiring for this flow.  A senior
+developer leading the effort should:
+
+1. **Integrate real data feeds.** Wire up news APIs, on‑chain
+   watchers, and Hyperliquid WebSocket streams so the `SignalService`
+   can produce reliable `TradeIdea` objects.
+2. **Harden risk logic.** Replace the static tiers in `RiskEngine` with a
+   profile learned from wallet history and social metrics, keeping the
+   sensitive weights inside the TEE.
+3. **Implement execution callbacks.** Use the Hyperliquid Python SDK to
+   submit and monitor orders, streaming fills and P&L back into the TEE
+   for dynamic risk throttling.
+4. **Coordinate deployments.** The agent will be launched from our
+   webapp, so container builds and environment variables must be managed
+   automatically for each user.
+
+The Shade stack keeps signing keys and risk models private, while the
+Hyperliquid SDK handles actual order placement.  Production use assumes
+the user deploys their own container with appropriate API keys and
+wallets configured via the webapp.
+
+### Recommended Market Data API
+
+For reliable event-driven trading in 2025, we suggest combining:
+
+1. **Kaiko Streaming Data** – aggregated trades and order book updates over WebSockets.
+2. **CryptoQuant** – on-chain flow metrics such as whale deposits and exchange inflows.
+3. **The Tie** – social and news sentiment scores with webhook support.
+
+These feeds can be funneled into the `SignalService` to rank events and generate actionable `TradeIdea` objects.
+
+### End-to-End Workflow & ML Strategies
+
+1. **Data ingestion** – collect market, on-chain and sentiment events.
+2. **Feature engineering** – derive indicators like funding flips, open-interest spikes and sentiment z-scores.
+3. **Model selection** – start with rule-based logic, then experiment with reinforcement learning or transformers to map features to trade intents.
+4. **Risk adaptation** – adjust the `RiskEnvelope` using online learning from realised P&L and user behavior.
+5. **Continuous deployment** – containerize the agent and deploy per-user instances via the webapp while keeping keys inside the TEE.
